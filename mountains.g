@@ -1,3 +1,4 @@
+
 #header
 <<
 #include <string>
@@ -117,10 +118,16 @@ int main() {
 #token DESC "\\"
 #token SOST "\#"
 #token PER "\*"
+#token COMA "\,"
+#token PLUS "\+"
+#token MINUS "\-"
+#token DIV "\/"
 #token CONCAT "\;"
 #token LP "\("
 #token RP "\)"
 #token DRAW "Draw"
+#token PEAK "Peak"
+#token VALLEY "Valley"
 #token NUM "[1-9][0-9]*"
 #token ID "[a-zA-Z]+[0-9]*"
 #token SPACE "[\ \t \n]" << zzskip(); >>
@@ -129,11 +136,16 @@ int main() {
 mountains: (assign /*| condic*/ | draw /*| iter | complete*/)* << #0 = createASTlist(_sibling); >>;
 
 assign: ID IS^ interior;
-interior: (literal | obj) /*(CONCAT^ (obj | literal))*/;
-literal: (vessant (CONCAT^ cim (CONCAT^ vessant | ) | ));
-vessant: NUM PER^ (ASC | DESC);
-cim: NUM PER^ CIM;
+interior: clause (CONCAT^ clause)*;
+clause: (lit | obj | peak | valley);                     
+peak: PEAK^ LP! expr COMA! expr COMA! expr RP!;
+valley: VALLEY^ LP! expr COMA! expr COMA! expr RP!;
+lit: NUM ((PER^ (ASC | DESC | CIM)) | );
 obj: SOST! ID;
 
 draw: DRAW^ LP! interior RP!;
+
+expr: term ((PLUS^ | MINUS^) term)*;
+term: par ((PER^ | DIV^) par)*;
+par: (LP! expr RP!) | (NUM | ID);
 
