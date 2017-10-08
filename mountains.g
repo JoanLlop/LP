@@ -33,14 +33,18 @@ AST *root;
 
 // function to fill token information
 void zzcr_attr(Attrib *attr, int type, char *text) {
-  // if (type == ID) {
-  //   attr->kind = "id";
-  //   attr->text = text;
-  // }
-  // else {
+   if (type == ID) {
+     attr->kind = "id";
+     attr->text = text;
+   }
+   else if (type == NUM) {
+	   attr->kind = "intconst";
+	   attr->text = text;
+   }
+   else {
     attr->kind = text;
     attr->text = "";
-  // }
+   }
 }
 
 // function to create a new AST node
@@ -113,6 +117,16 @@ int main() {
 
 #lexclass START
 #token IS "is"
+#token IF "if"
+#token AND "AND"
+#token OR "OR"
+#token NOT "NOT"
+#token ENDIF "endif"
+#token LESS "\<"
+#token MORE "\>"
+#token EQUALS "\=\="
+#token LESSOREQUAL "\<\="
+#token MOREOREQUAL "\>\="
 #token ASC "\/"
 #token CIM "\-"
 #token DESC "\\"
@@ -128,24 +142,43 @@ int main() {
 #token DRAW "Draw"
 #token PEAK "Peak"
 #token VALLEY "Valley"
+#token COMPLETE "Complete"
+#token MATCH "Match"
+#token HEIGHT "Height"
+#token WELLFORMED "Wellformed"
 #token NUM "[1-9][0-9]*"
 #token ID "[a-zA-Z]+[0-9]*"
 #token SPACE "[\ \t \n]" << zzskip(); >>
 
 
-mountains: (assign /*| condic*/ | draw /*| iter | complete*/)* << #0 = createASTlist(_sibling); >>;
+mountains: (assign /*| condic*/ | draw | /*iter |*/ complete)* << #0 = createASTlist(_sibling); >>;
 
 assign: ID IS^ interior;
 interior: clause (CONCAT^ clause)*;
 clause: (lit | obj | peak | valley);                     
 peak: PEAK^ LP! expr COMA! expr COMA! expr RP!;
 valley: VALLEY^ LP! expr COMA! expr COMA! expr RP!;
-lit: NUM ((PER^ (ASC | DESC | CIM)) | );
+lit: (NUM | ID | LP! expr RP!) ((PER^ (ASC | DESC | CIM))|);
 obj: SOST! ID;
 
 draw: DRAW^ LP! interior RP!;
+
+complete: COMPLETE^ LP! interior RP!;
 
 expr: term ((PLUS^ | MINUS^) term)*;
 term: par ((PER^ | DIV^) par)*;
 par: (LP! expr RP!) | (NUM | ID);
 
+condic: IF^ LP! bool_expr RP! mountains ENDIF;
+
+bool_expr: bool_term (AND^ bool_term)*;
+bool_term: bool_par (OR^ bool_par)*;
+bool_par:  (NOT^ | ) (bool_atom /*| (LP! bool_expr RP!)*/);
+
+bool_atom: bool_func | bool_comp;
+bool_comp: (expr | height) bool_simb (expr | height); 
+bool_simb: (LESS^ | MORE^ | EQUALS^ | LESSOREQUAL^ | MOREOREQUAL^); 
+bool_func: (match | wellformed);
+match: MATCH^ LP! obj COMA! obj RP!;
+height: HEIGHT^ LP! obj RP!;
+wellformed: WELLFORMED^ LP! interior RP!;
