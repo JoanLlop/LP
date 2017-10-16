@@ -146,12 +146,12 @@ int main() {
 #token MATCH "Match"
 #token HEIGHT "Height"
 #token WELLFORMED "Wellformed"
-#token NUM "[1-9][0-9]*"
+#token NUM "[0-9]*"
 #token ID "[a-zA-Z]+[0-9]*"
 #token SPACE "[\ \t \n]" << zzskip(); >>
 
 
-mountains: (assign /*| condic*/ | draw | /*iter |*/ complete)* << #0 = createASTlist(_sibling); >>;
+mountains: (assign | condic | draw | /*iter |*/ complete)* << #0 = createASTlist(_sibling); >>;
 
 assign: ID IS^ interior;
 interior: clause (CONCAT^ clause)*;
