@@ -118,10 +118,12 @@ int main() {
 #lexclass START
 #token IS "is"
 #token IF "if"
+#token WHILE "While"
 #token AND "AND"
 #token OR "OR"
 #token NOT "NOT"
 #token ENDIF "endif"
+#token ENDWHILE "endwhile"
 #token LESS "\<"
 #token MORE "\>"
 #token EQUALS "\=\="
@@ -151,14 +153,15 @@ int main() {
 #token SPACE "[\ \t \n]" << zzskip(); >>
 
 
-mountains: (assign | condic | draw | /*iter |*/ complete)* << #0 = createASTlist(_sibling); >>;
+mountains: (assign | condic | draw | iter | complete)* << #0 = createASTlist(_sibling); >>;
 
 assign: ID IS^ interior;
 interior: clause (CONCAT^ clause)*;
-clause: (lit | obj | peak | valley);                     
+clause: (lit_id_expr | obj | peak | valley);                     
 peak: PEAK^ LP! expr COMA! expr COMA! expr RP!;
 valley: VALLEY^ LP! expr COMA! expr COMA! expr RP!;
-lit: (NUM | ID | LP! expr RP!) ((PER^ (ASC | DESC | CIM))|);
+lit_id_expr: par (((PER^ (par ((PLUS^ | MINUS^) term)* | lit)) | (((PLUS^ | MINUS^) term) | ((DIV^) par)) )| );
+lit: (ASC | DESC | CIM);
 obj: SOST! ID;
 
 draw: DRAW^ LP! interior RP!;
@@ -169,15 +172,17 @@ expr: term ((PLUS^ | MINUS^) term)*;
 term: par ((PER^ | DIV^) par)*;
 par: (LP! expr RP!) | (NUM | ID);
 
-condic: IF^ LP! bool_expr RP! mountains ENDIF;
+condic: IF^ LP! bool_expr RP! mountains ENDIF!;
+
+iter: WHILE^ LP! bool_expr RP! mountains ENDWHILE!;
 
 bool_expr: bool_term (AND^ bool_term)*;
 bool_term: bool_par (OR^ bool_par)*;
 bool_par:  (NOT^ | ) (bool_atom /*| (LP! bool_expr RP!)*/);
 
 bool_atom: bool_func | bool_comp;
-bool_comp: (expr | height) bool_simb (expr | height); 
-bool_simb: (LESS^ | MORE^ | EQUALS^ | LESSOREQUAL^ | MOREOREQUAL^); 
+bool_comp: (expr | height) (LESS^ | MORE^ | EQUALS^ | LESSOREQUAL^ | MOREOREQUAL^) (expr | height); 
+bool_simb: (LESS | MORE | EQUALS | LESSOREQUAL | MOREOREQUAL); 
 bool_func: (match | wellformed);
 match: MATCH^ LP! obj COMA! obj RP!;
 height: HEIGHT^ LP! obj RP!;
