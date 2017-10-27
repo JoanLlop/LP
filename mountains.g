@@ -3,6 +3,7 @@
 <<
 #include <string>
 #include <iostream>
+#include <map>
 using namespace std;
 
 // struct to store information about tokens
@@ -38,8 +39,8 @@ void zzcr_attr(Attrib *attr, int type, char *text) {
      attr->text = text;
    }
    else if (type == NUM) {
-	   attr->kind = "intconst";
-	   attr->text = text;
+     attr->kind = "intconst";
+     attr->text = text;
    }
    else {
     attr->kind = text;
@@ -106,11 +107,87 @@ void ASTPrint(AST *a) {
   }
 }
 
+void error (string s){
+  cout << s << endl;
+  exit(-1);
+}
+
+bool es_montanya (AST *a,  map<string, string>& montanyes){
+  if (a == NULL) return false;
+  string s = a->text.c_str();
+  if (a->kind == ";") return true;
+  else if (a->kind == "id" and (montanyes.find(s) != montanyes.end())) return true;
+  else if (a->kind == "Peak") return true;
+  else if (a->kind == "Valley") return true;
+  else if (a->kind == "*" and (child(a, 1)->kind == "/" or child(a, 1)->kind == "-" or child(a, 1)->kind == "\\")) return true;
+  else return (es_montanya(a->right, montanyes) or es_montanya(a->down, montanyes));
+}
+
+int evaluate(AST *a, map<string, int>& constants){
+  if (a == NULL) return 0;
+  else if (a->kind == "intconst") 
+    return atoi(a->text.c_str());
+  else if (a->kind == "+")
+    return evaluate(a->down, constants) + evaluate(a->down->right, constants);
+  else if (a->kind == "-")
+    return evaluate(child(a,0), constants) - evaluate(child(a,1), constants);
+  else if (a->kind == "*")
+    return evaluate(child(a,0), constants) * evaluate(child(a,1), constants);
+  else if (a->kind == "/")
+    return evaluate(child(a,0), constants) / evaluate(child(a,1), constants);
+  else if (a->kind == "id" and constants.find(a->text.c_str()) != constants.end())
+    return constants[a->text.c_str()];
+  else error ("evaluar no és un int");
+}
+
+string convertir_en_muntanya (AST *a, map<string, string>& montanyes, map<string, int>& constants){
+  if (a == NULL) return "";
+  
+
+}
+
+void execute(AST *a, map<string, string>& montanyes, map<string, int>& constants) {
+  if (a == NULL) return;
+  else if (a->kind == "list"){
+    execute (a->down, montanyes, constants);
+  }
+  else if (a->kind == "is"){
+    if (es_montanya(child(a, 1), montanyes)){
+      //montanyes[child(a, 0)->text.c_str()] = convertir_en_muntanya(child(a, 1), montanyes, constants);
+    }
+    else{
+      //cout << "entra: " << child(a, 0)->text.c_str() << endl;
+      constants[child(a, 0)->text.c_str()] = evaluate(child(a, 1), constants);
+    }
+    execute (a->right, montanyes, constants);
+  }
+  else if (a->kind == "if"){
+
+  }
+  else if (a->kind == "Draw"){
+
+  }
+  else if ("while"){
+
+  }
+  else if ("complete"){
+
+  }
+  else {
+    execute (a->right, montanyes, constants);
+  }
+}
 
 int main() {
+  map<string, string> montanyes;
+  map<string, int> constants;
   root = NULL;
   ANTLR(mountains(&root), stdin);
   ASTPrint(root);
+  execute(root, montanyes, constants);
+  for (auto it = constants.begin(); it != constants.end(); ++it){
+    cout << it->first << ": " << it->second << endl;
+  }
 }
 >>
 
@@ -129,9 +206,6 @@ int main() {
 #token EQUALS "\=\="
 #token LESSOREQUAL "\<\="
 #token MOREOREQUAL "\>\="
-#token ASC "\/"
-#token CIM "\-"
-#token DESC "\\"
 #token SOST "\#"
 #token PER "\*"
 #token COMA "\,"
@@ -148,8 +222,11 @@ int main() {
 #token MATCH "Match"
 #token HEIGHT "Height"
 #token WELLFORMED "Wellformed"
+#token ASC "\/"
+#token CIM "\-"
+#token DESC "\\"
 #token NUM "[0-9]*"
-#token ID "[a-zA-Z]+[0-9]*"
+#token ID "[A-Z]+[0-9]*"
 #token SPACE "[\ \t \n]" << zzskip(); >>
 
 
@@ -157,20 +234,23 @@ mountains: (assign | condic | draw | iter | complete)* << #0 = createASTlist(_si
 
 assign: ID IS^ interior;
 interior: clause (CONCAT^ clause)*;
-clause: (lit_id_expr | obj | peak | valley);                     
+clause: ( expr_m | obj | peak | valley);                     
 peak: PEAK^ LP! expr COMA! expr COMA! expr RP!;
 valley: VALLEY^ LP! expr COMA! expr COMA! expr RP!;
-lit_id_expr: par (((PER^ (par ((PLUS^ | MINUS^) term)* | lit)) | (((PLUS^ | MINUS^) term) | ((DIV^) par)) )| );
-lit: (ASC | DESC | CIM);
 obj: SOST! ID;
+
 
 draw: DRAW^ LP! interior RP!;
 
-complete: COMPLETE^ LP! interior RP!;
+complete: COMPLETE^ LP! ID RP!;
 
 expr: term ((PLUS^ | MINUS^) term)*;
 term: par ((PER^ | DIV^) par)*;
 par: (LP! expr RP!) | (NUM | ID);
+
+expr_m: term_m ((PLUS^ | MINUS^) term_m)*;
+term_m: par_m ((PER^ | DIV^) par_m)*;
+par_m: (LP! expr_m RP!) | (NUM | ID | ASC | CIM | DESC);
 
 condic: IF^ LP! bool_expr RP! mountains ENDIF!;
 
