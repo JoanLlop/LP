@@ -137,14 +137,235 @@ int evaluate(AST *a, map<string, int>& constants){
     return evaluate(child(a,0), constants) / evaluate(child(a,1), constants);
   else if (a->kind == "id" and constants.find(a->text.c_str()) != constants.end())
     return constants[a->text.c_str()];
-  else error ("evaluar no és un int");
+  else error ("Això ni és una constant ni és res!");
 }
 
 string convertir_en_muntanya (AST *a, map<string, string>& montanyes, map<string, int>& constants){
   if (a == NULL) return "";
-  
-
+  else if (a->kind == ";"){
+    return convertir_en_muntanya(child(a, 0), montanyes, constants) + convertir_en_muntanya(child(a, 1), montanyes, constants);
+  }
+  else if (a->kind == "*"){
+    int n = evaluate(child(a, 0), constants);
+    string r = "";
+    for (int i = 0; i < n; ++i){
+      if (child(a, 1)->kind == "/" or child(a, 1)->kind == "-" or child(a, 1)->kind == "\\")r += child(a, 1)->kind;
+      else error("hi ha numeros hi montanyes barrejats!");
+    } 
+    return r;
+  }
+  else if (a->kind == "id"){
+    if (montanyes.find(a->text.c_str()) != montanyes.end()) return montanyes[a->text.c_str()];
+    else error("montanya no definida.");
+  }
+  else if (a->kind == "Peak"){
+    int d, b, c;
+    d = evaluate(child(a, 0), constants);
+    b = evaluate(child(a, 1), constants);
+    c = evaluate(child(a, 2), constants);
+    string r = "";
+    for (int i = 0; i < d; ++i) r += "/";
+    for (int i = 0; i < b; ++i) r += "-";
+    for (int i = 0; i < c; ++i) r += "\\";
+    return r;
+  }
+  else if (a->kind == "Valley"){
+    int d, b, c;
+    d = evaluate(child(a, 0), constants);
+    b = evaluate(child(a, 1), constants);
+    c = evaluate(child(a, 2), constants);
+    string r = "";
+    for (int i = 0; i < d; ++i) r += "\\";
+    for (int i = 0; i < b; ++i) r += "-";
+    for (int i = 0; i < c; ++i) r += "/";
+    return r;
+  }
+  else {
+    cout << a->kind;
+    error (" Quina merda de montanya has definit?");
+  }
 }
+
+int altura (string M){
+  int minim = 0;
+  int maxim = 0;
+  int act   = 0;
+  for (int i = 0; i < M.size(); ++i){
+    if (M[i] == '/'){
+      ++act;
+      if (act > maxim) maxim = act;
+      if (act < minim) minim = act;
+    }
+    else if (M[i] == '\\'){
+      --act;
+      if (act > maxim) maxim = act;
+      if (act < minim) minim = act;
+    }
+    else if (M[i] != '-') error("montanya mal definida");
+  }
+  return maxim - minim;
+}
+
+bool Match (string M1, string M2){
+  return altura(M1) == altura(M2);
+}
+
+bool wellformed (string M){
+  if (M.size() <= 0) return false;
+  int i = 0;
+  while (i < M.size()){
+    if (M[i] == '/') {
+      while (M[i] == '/'){
+        ++i;
+        if (i >= M.size()) return false;
+      }
+      if (M[i] != '-') return false;
+      while (M[i] == '-'){
+        ++i;
+        if (i >= M.size()) return false;
+      }
+      if (M[i] != '\\') return false;
+      while (M[i] == '\\'){
+        ++i;
+        if (i >= M.size()) return false;
+      }
+    }
+    else if (M[i] == '\\'){
+      while (M[i] == '\\'){
+        ++i;
+        if (i >= M.size()) return false;
+      }
+      if (M[i] != '-') return false;
+      while (M[i] == '-'){
+        ++i;
+        if (i >= M.size()) return false;
+      }
+      if (M[i] != '/') return false;
+      while (M[i] == '/'){
+        ++i;
+        if (i >= M.size()) return false;
+      }
+    }
+    else return false;
+  }
+  return true;
+}
+
+bool es_true(AST *a, map<string, string>& montanyes, map<string, int>& constants){
+  if (a->kind == "OR") {
+    return es_true(child(a, 0), montanyes, constants) || es_true(child(a, 1), montanyes, constants);
+  }
+  else if (a->kind == "AND"){
+    return es_true(child(a, 0), montanyes, constants) && es_true(child(a, 1), montanyes, constants);
+  }
+  else if (a->kind == "NOT"){
+    return not (es_true(child(a, 0), montanyes, constants));
+  }
+  else if (a->kind == "<" or a->kind == ">" or a->kind=="=="){
+    int p, q;
+    if (child(a, 0)->kind == "Height"){
+      if (es_montanya(child(child(a, 0), 0), montanyes)){
+        p = altura (convertir_en_muntanya(child(child(a, 0), 0), montanyes, constants));
+      }
+      else error ("No es una montanya");
+    }
+    else {
+      p = evaluate(child(a, 0), constants);
+    }
+
+    if (child(a, 1)->kind == "Height"){
+      if (es_montanya(child(child(a, 1), 0), montanyes)){
+        q = altura (convertir_en_muntanya(child(child(a, 1), 0), montanyes, constants));
+      }
+      else error ("No es una montanya");
+    }
+    else q = evaluate(child(a, 1), constants);
+
+
+    if (a->kind == "<") return p < q;
+    else if (a->kind == ">") return p > q;
+    else if (a->kind == "==") return p == q;
+  }
+  else if (a->kind == "Match"){
+    if (es_montanya(child(a, 0), montanyes) and es_montanya(child(a, 1), montanyes)){
+      return (altura(convertir_en_muntanya(child(a, 0), montanyes, constants)) == altura(convertir_en_muntanya(child(a, 1), montanyes, constants)));
+    }
+    else error("no es una montanya");
+  }
+  else if (a->kind == "Wellformed"){
+    if (es_montanya(child(a, 0), montanyes)){
+      return wellformed(convertir_en_muntanya(child(a, 0), montanyes, constants));
+    }
+    else error("No es una montanya");
+  }
+  else {
+    error("condició no booleana");
+  }
+}
+
+void complete(AST *a, map<string, string>& montanyes, map<string, int>& constants) {
+  if (montanyes.find(a->text.c_str()) != montanyes.end()){
+    string s = montanyes[a->text.c_str()];
+    int i = 0;
+    if (s[i] == '/'){
+      while (s[i] == '/') {
+        ++i;
+        if (i >= s.size()){
+          s += "-\\";
+          montanyes[a->text.c_str()] = s;
+          return;
+        }
+      }
+      if (s[i] != '-') error ("Completar no es possible");
+      while (s[i] == '-') {
+        ++i;
+        if (i >= s.size()){
+          s += "\\";
+          montanyes[a->text.c_str()] = s;
+          return;
+        }
+      }
+      if (s[i] != '\\') error ("Completar no es possible");
+      while (s[i] == '\\') {
+        ++i;
+        if (i >= s.size()){
+          montanyes[a->text.c_str()] = s;
+          return;
+        }
+      }
+    }
+    else if (s[i] == '\\'){
+      while (s[i] == '\\') {
+        ++i;
+        if (i >= s.size()){
+          s += "-/";
+          montanyes[a->text.c_str()] = s;
+          return;
+        }
+      }
+      if (s[i] != '-') error ("Completar no es possible");
+      while (s[i] == '-') {
+        ++i;
+        if (i >= s.size()){
+          s += "/";
+          montanyes[a->text.c_str()] = s;
+          return;
+        }
+      }
+      if (s[i] != '/') error ("Completar no es possible");
+      while (s[i] == '/') {
+        ++i;
+        if (i >= s.size()){
+          montanyes[a->text.c_str()] = s;
+          return;
+        }
+      }
+    }
+    else error ("Completar no es possible");
+  }
+  else error("No s'ha trobat la montanya per a completar");
+}
+
 
 void execute(AST *a, map<string, string>& montanyes, map<string, int>& constants) {
   if (a == NULL) return;
@@ -153,25 +374,36 @@ void execute(AST *a, map<string, string>& montanyes, map<string, int>& constants
   }
   else if (a->kind == "is"){
     if (es_montanya(child(a, 1), montanyes)){
-      //montanyes[child(a, 0)->text.c_str()] = convertir_en_muntanya(child(a, 1), montanyes, constants);
+      montanyes[child(a, 0)->text.c_str()] = convertir_en_muntanya(child(a, 1), montanyes, constants);
     }
     else{
-      //cout << "entra: " << child(a, 0)->text.c_str() << endl;
       constants[child(a, 0)->text.c_str()] = evaluate(child(a, 1), constants);
     }
     execute (a->right, montanyes, constants);
   }
   else if (a->kind == "if"){
-
+    if (es_true(child(a, 0), montanyes, constants)){
+      execute(child(a, 1), montanyes, constants);
+    }
+    execute (a->right, montanyes, constants);
   }
   else if (a->kind == "Draw"){
+    if (es_montanya(child(a, 0), montanyes)){
+      cout << convertir_en_muntanya(child(a, 0), montanyes, constants) << endl;
+      execute (a->right, montanyes, constants);
 
+    }
+    else error("Draw no conté cap muntanya");
   }
-  else if ("while"){
-
+  else if (a->kind == "while"){
+    while (es_true(child(a, 0), montanyes, constants)){
+      execute(child(a, 1), montanyes, constants);
+    }
+    execute (a->right, montanyes, constants);
   }
-  else if ("complete"){
-
+  else if (a->kind == "Complete"){
+    complete (child(a, 0), montanyes, constants);
+    execute (a->right, montanyes, constants);
   }
   else {
     execute (a->right, montanyes, constants);
@@ -185,8 +417,13 @@ int main() {
   ANTLR(mountains(&root), stdin);
   ASTPrint(root);
   execute(root, montanyes, constants);
+  /*cout << "constants: " << endl;
   for (auto it = constants.begin(); it != constants.end(); ++it){
     cout << it->first << ": " << it->second << endl;
+  }*/
+  cout << "----------------------------------------" << endl;
+  for (auto it = montanyes.begin(); it != montanyes.end(); ++it){
+    cout << "l'altitud final de " << it->first << " es: " << altura(it->second) << endl;
   }
 }
 >>
@@ -204,8 +441,6 @@ int main() {
 #token LESS "\<"
 #token MORE "\>"
 #token EQUALS "\=\="
-#token LESSOREQUAL "\<\="
-#token MOREOREQUAL "\>\="
 #token SOST "\#"
 #token PER "\*"
 #token COMA "\,"
@@ -262,7 +497,7 @@ bool_par:  (NOT^ | ) (bool_atom /*| (LP! bool_expr RP!)*/);
 
 bool_atom: bool_func | bool_comp;
 bool_comp: (expr | height) (LESS^ | MORE^ | EQUALS^ | LESSOREQUAL^ | MOREOREQUAL^) (expr | height); 
-bool_simb: (LESS | MORE | EQUALS | LESSOREQUAL | MOREOREQUAL); 
+bool_simb: (LESS | MORE | EQUALS); 
 bool_func: (match | wellformed);
 match: MATCH^ LP! obj COMA! obj RP!;
 height: HEIGHT^ LP! obj RP!;
