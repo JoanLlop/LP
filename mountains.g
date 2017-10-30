@@ -137,8 +137,9 @@ int evaluate(AST *a, map<string, int>& constants){
     return evaluate(child(a,0), constants) / evaluate(child(a,1), constants);
   else if (a->kind == "id" and constants.find(a->text.c_str()) != constants.end())
     return constants[a->text.c_str()];
-  else error ("Això ni és una constant ni és res!");
+  else error ("Valor numeric incorrecte");
 }
+
 
 string convertir_en_muntanya (AST *a, map<string, string>& montanyes, map<string, int>& constants){
   if (a == NULL) return "";
@@ -146,17 +147,18 @@ string convertir_en_muntanya (AST *a, map<string, string>& montanyes, map<string
     return convertir_en_muntanya(child(a, 0), montanyes, constants) + convertir_en_muntanya(child(a, 1), montanyes, constants);
   }
   else if (a->kind == "*"){
+    if (not(child(a, 1)->kind == "/" or child(a, 1)->kind == "-" or child(a, 1)->kind == "\\")) error("S'han de posar parentesis per posar expressions a la definicio de muntanyes");
     int n = evaluate(child(a, 0), constants);
     string r = "";
     for (int i = 0; i < n; ++i){
       if (child(a, 1)->kind == "/" or child(a, 1)->kind == "-" or child(a, 1)->kind == "\\")r += child(a, 1)->kind;
-      else error("hi ha numeros hi montanyes barrejats!");
+      else error("hi ha numeros i montanyes barrejats!");
     } 
     return r;
   }
   else if (a->kind == "id"){
     if (montanyes.find(a->text.c_str()) != montanyes.end()) return montanyes[a->text.c_str()];
-    else error("montanya no definida.");
+    else error("montanya no definida: " + string(a->text.c_str()));
   }
   else if (a->kind == "Peak"){
     int d, b, c;
@@ -182,7 +184,7 @@ string convertir_en_muntanya (AST *a, map<string, string>& montanyes, map<string
   }
   else {
     cout << a->kind;
-    error (" Quina merda de montanya has definit?");
+    error ("Montanya incorrecte, recorda que s'han de posar parentesis per posar expressions a la definicio de muntanyes");
   }
 }
 
@@ -201,7 +203,7 @@ int altura (string M){
       if (act > maxim) maxim = act;
       if (act < minim) minim = act;
     }
-    else if (M[i] != '-') error("montanya mal definida");
+    else if (M[i] != '-') error("montanya mal definida: " + M);
   }
   return maxim - minim;
 }
@@ -267,7 +269,7 @@ bool es_true(AST *a, map<string, string>& montanyes, map<string, int>& constants
       if (es_montanya(child(child(a, 0), 0), montanyes)){
         p = altura (convertir_en_muntanya(child(child(a, 0), 0), montanyes, constants));
       }
-      else error ("No es una montanya");
+      else error ("Height: " + string(child(child(a, 0), 0)->text.c_str())+" no es una montanya o no esta definida");
     }
     else {
       p = evaluate(child(a, 0), constants);
@@ -277,7 +279,7 @@ bool es_true(AST *a, map<string, string>& montanyes, map<string, int>& constants
       if (es_montanya(child(child(a, 1), 0), montanyes)){
         q = altura (convertir_en_muntanya(child(child(a, 1), 0), montanyes, constants));
       }
-      else error ("No es una montanya");
+      else error ("Height: " + string(child(child(a, 1), 0)->text.c_str())+" no es una montanya o no esta definida");
     }
     else q = evaluate(child(a, 1), constants);
 
@@ -296,7 +298,7 @@ bool es_true(AST *a, map<string, string>& montanyes, map<string, int>& constants
     if (es_montanya(child(a, 0), montanyes)){
       return wellformed(convertir_en_muntanya(child(a, 0), montanyes, constants));
     }
-    else error("No es una montanya");
+    else error("Wellformed: montanya no definida.");
   }
   else {
     error("condició no booleana");
@@ -417,10 +419,6 @@ int main() {
   ANTLR(mountains(&root), stdin);
   ASTPrint(root);
   execute(root, montanyes, constants);
-  /*cout << "constants: " << endl;
-  for (auto it = constants.begin(); it != constants.end(); ++it){
-    cout << it->first << ": " << it->second << endl;
-  }*/
   cout << "----------------------------------------" << endl;
   for (auto it = montanyes.begin(); it != montanyes.end(); ++it){
     cout << "l'altitud final de " << it->first << " es: " << altura(it->second) << endl;
@@ -491,14 +489,13 @@ condic: IF^ LP! bool_expr RP! mountains ENDIF!;
 
 iter: WHILE^ LP! bool_expr RP! mountains ENDWHILE!;
 
-bool_expr: bool_term (AND^ bool_term)*;
+bool_expr: bool_term (AND^ bool_term)*; 
 bool_term: bool_par (OR^ bool_par)*;
-bool_par:  (NOT^ | ) (bool_atom /*| (LP! bool_expr RP!)*/);
+bool_par:  (NOT^ | ) bool_atom;//per incompatibilitat amb expr no puc posar gerarquia de paréntesis. Que s'afegiria algo així al final: | LP! bool_expr RP!.
 
-bool_atom: bool_func | bool_comp;
-bool_comp: (expr | height) (LESS^ | MORE^ | EQUALS^ | LESSOREQUAL^ | MOREOREQUAL^) (expr | height); 
-bool_simb: (LESS | MORE | EQUALS); 
-bool_func: (match | wellformed);
+bool_atom: (match | wellformed | bool_comp);
+bool_comp: (expr | height) (LESS^ | MORE^ | EQUALS^) (expr | height);
+
 match: MATCH^ LP! obj COMA! obj RP!;
 height: HEIGHT^ LP! obj RP!;
 wellformed: WELLFORMED^ LP! interior RP!;
